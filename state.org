@@ -1,0 +1,26 @@
+lets start by just having a set of tracks, like the normal player, except these will loop
+each track should loop on its own, (i.e. if one track's pattern is 1 bar, and another is 2 bars,
+the first track will play twice for every time the 2nd bar plays once, rather than waiting for all
+patterns to end, then restarting.
+
+
+* things that can change during the process of playing (stuff we need atoms or something for):
+- tracks as a whole (can add / remove (really muting probably makes more sense than removing))
+** track specifics
+   - muted?
+   - volume
+     - complicated, maybe should be controlled at the inst level, which we could do , by sending midi
+       control info
+   - pattern itself
+   - instrument fn eventually, low prio
+   - volume (complicated, tackle later)
+
+** playing? state
+  - should be able to pause / play / restart / skip, ideally using midi sysex signals
+  - so this is like location of marker, if we're we looping it can't be longer than
+    the longest pattern. it may be useful to track the number of loops as well
+  - Overtone's metronome thing can probably be integrated here somehow
+
+** instruments
+   - should be tracked separately from tracks, right now inst-fns on tracks
+   - tracks should instead reference the key of the inst-fn stored in the insts map.

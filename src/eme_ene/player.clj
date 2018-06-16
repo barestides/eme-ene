@@ -128,6 +128,17 @@
   (doseq [track tracklist]
     (play-track player-state track)))
 
+;;probably need to pass the state around everywhere and just pull out what we need
+;;should maybe also have a config map for stuff that won't change
+(def live-player-state
+  {:tracks (atom {})
+   :insts (atom {})
+   }
+
+  )
+
+
+
 ;; (def live-player-state
 ;;   {:playing? (atom true)
 ;;    :step-skip-pct midi/step-skip-pct
