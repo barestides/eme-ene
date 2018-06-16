@@ -5,6 +5,7 @@
             [overtone.at-at :as at-at]
             [overtone.algo.chance :as chance]
             [eme-ene.util.util :as util]
+            [eme-ene.analyzer :as a]
             [eme-ene.util.chance :as cu]
             [eme-ene.midi :as midi]
             [eme-ene.util.constants :refer :all]))
@@ -130,56 +131,71 @@
 
 ;;probably need to pass the state around everywhere and just pull out what we need
 ;;should maybe also have a config map for stuff that won't change
-(def live-player-state
+(def state
   {:tracks (atom {})
-   :insts (atom {})
-   }
+   ;;possibly get rid of later
+   ;; :insts (atom {})
+   :controls (atom {})
+   :nome (r/metronome 110)
+   :playing? (atom false)
+   :pulse :q})
 
-  )
+(defn play-pattern2
+  [state pattern inst cur-beat]
+  (let [{:keys [nome pulse playing?]} state
+        inst-fn (midi/get-inst-fn inst)
+        {:keys [dur rest? vel]} (first pattern)
+        real-dur (float (/ (dur nice-names->note-values)
+                           (pulse nice-names->note-values)))
+        next-beat (+ (+ cur-beat real-dur) real-dur)]
+    (when (and @playing? (not rest?))
+      (at-at/at (nome cur-beat) #(inst-fn vel) pool))
+    (when (and @playing? (not-empty (rest pattern)))
+      (t/apply-by (nome next-beat) #'play-pattern2 [state (rest pattern) inst next-beat]))))
 
+(defn play-track2
+  [state track-id beat]
+  (let [track (get @(:tracks state) track-id)
+        nome (:nome state)
+        {:keys [pattern inst]} track
+        pattern-length (a/melody-length (:pattern track) (:pulse state))
+        next-beat (+ pattern-length beat)]
+    (prn "playing track")
+    (at-at/at (nome beat) #(play-pattern2 state pattern inst beat) pool)
+    (when @(:playing? state)
+      (t/apply-by (nome next-beat) #'play-track2 [state track-id next-beat]))))
 
+;;the two things different here are that we loop once the pattern is finished, and that the pattern can change
+;;we are going to start by making it so changes to the pattern are not realized until the next time the pattern is
+;;played.
+;;So we deref the pattern, play it, then look at what the pattern is again, and play that.
+;;we can still reference controls like for swing b/c that is computed when playing
+(defn play-tracks2
+  [state]
+  (doseq [track-id (keys @(:tracks state))]
+    (play-track2 state track-id ((:nome state)))))
 
-;; (def live-player-state
-;;   {:playing? (atom true)
-;;    :step-skip-pct midi/step-skip-pct
-;;    :up-down-pct midi/up-down-pct
-;;    :nome (r/metronome 120)
-;;    :pattern (cycle [:e :e :q])
-;;    :pulse :q
-;;    :inst-fn (:piano midi/inst-fns)})
+(defn start-playing
+  [state]
+  (if (not-empty @(:tracks state))
+    (do
+      (reset! (:playing? state) true)
+      (r/metro-start (:nome state) 0)
+      (play-tracks2 state))
+    (throw (Exception. "No tracks to play."))))
 
-;; (defn change-skip-pct
-;;   [amount]
-;;   (swap! (:step-skip-pct live-player-state) + amount)
-;;   (prn @(:step-skip-pct live-player-state)))
+(defn pause!
+  [state]
+  (reset! (:playing? state) false))
 
-;; (defn pause!
-;;   []
-;;   (reset! (:playing? live-player-state) false))
+(defn add-track!
+  [state track]
+  (let [tracks (:tracks state)
+        id (if (empty? @tracks)
+             0
+             (inc (apply max (keys @tracks))))]
+    (swap! tracks assoc id track)))
 
-;; ;;should add support for staying within the pitch
-;; ;;further, could have another controller that can adjust how close to the key the possible notes are
-
-;; (defn next-pitch
-;;   [last-note step-skip-pct up-down-pct]
-;;   (prn step-skip-pct)
-;;   (prn up-down-pct)
-;;   ;;if pct is 0, we should always step, if it's 1, always leap
-;;   (let [step-or-leap (cu/weighted-choose {:step (- 1 step-skip-pct) :leap step-skip-pct})
-;;         up-or-down (cu/weighted-choose {1 up-down-pct -1 (- 1 up-down-pct)})
-;;         interval (* up-or-down (rand-nth (step-or-leap {:step [0 2] :leap [3 4 5 6 7]})))]
-;;     (+ last-note interval)))
-
-;; (defn live-player
-;;   [beat last-note state]
-;;   (let [{:keys [playing? step-skip-pct nome pattern pulse inst-fn up-down-pct]} state
-;;         dur (first pattern)
-;;         dur-to-pulse (float (/ (dur nice-names->note-values)
-;;                                (pulse nice-names->note-values)))
-;;         real-dur (real-dur dur pulse nome)
-;;         next-beat (+ beat dur-to-pulse)
-;;         next-pitch (next-pitch last-note @step-skip-pct @up-down-pct)]
-;;     (when @playing?
-;;       (at-at/at (nome beat) #(inst-fn next-pitch real-dur) pool)
-;;       (t/apply-by (nome next-beat) #'live-player
-;;                   [next-beat next-pitch (update state :pattern rest)]))))
+(defn remove-track!
+  [state track-id]
+  (swap! (:tracks state) dissoc track-id))

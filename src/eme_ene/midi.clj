@@ -15,6 +15,11 @@
 (def drumkv1 (first (filter #(re-find #":0,1" (:name %)) receivers)))
 (def zynaddsubfx (first (filter #(re-find #":0,2" (:name %)) receivers)))
 
+(def apps
+  {:drumkv1 drumkv1
+   :qsynth qsynth
+   :zynaddsubx zynaddsubfx})
+
 ;;we should definitely track these in state and allow them to be changeable
 ;; https://github.com/barestides/eme-ene/issues/10
 (def midi->drum {:kick 36
@@ -30,6 +35,7 @@
    :piano 1})
 
 ;;these should be more generic, we really have just melodic and percussive, but we could have different receivers
+;;remove these eventually
 (defn drumkv1-inst
   [inst]
   (omidi/midi-note drumkv1 (inst midi->drum) 100 10))
@@ -41,6 +47,25 @@
 (defn zynaddsubfx-inst
   [inst midi-note dur]
   (omidi/midi-note zynaddsubfx midi-note 100 dur (inst inst->zyn-channel)))
+
+(defmulti get-inst-fn (fn [inst] (:type inst)))
+
+(defmethod get-inst-fn :percussive
+  [inst]
+  (let [{:keys [app drum]} inst]
+    (fn [vel]
+      (omidi/midi-note (app apps) (drum midi->drum) vel 10))))
+
+(defmethod get-inst-fn :melodic
+  [inst]
+  (let [{:keys [app channel]} inst]
+    (fn [dur midi vel]
+      (omidi/midi-note (app apps) midi vel dur channel))))
+
+;; (defn get-inst-fn
+;;   [app channel]
+;;   (fn [{:keys [dur midi vel] :as note}]
+;;     (omidi/midi-note (app apps) midi vel (or dur 10) channel)))
 
 (def loop-state
   {:metronome (r/metronome 120)

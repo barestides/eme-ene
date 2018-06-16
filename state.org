@@ -23,4 +23,13 @@ patterns to end, then restarting.
 
 ** instruments
    - should be tracked separately from tracks, right now inst-fns on tracks
+     - should they? I thought this initially because multiple tracks could play the same inst,
+       but I think if we want to do future midi stuff, we will probably want to have unique channels
+       to the software insts. Let's leave it on the track, and see how that works out
+     - ooh, what might make more sense is to store a key referencing the software inst, (e.g. :zynaddsubfx)
+       along with the channel. This lets us easily to crazy midi controls knowing the destination of the
+       inst. We also retain a "data-only" map, without functions, which is easier to work with
+
+       We can hardcode the insts for now, but they should be in state eventually
+
    - tracks should instead reference the key of the inst-fn stored in the insts map.

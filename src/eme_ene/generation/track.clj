@@ -80,3 +80,25 @@
   [tracks]
   ;;assuming all the tracks' patterns are the same length in beats
   (map-indexed #(update %2 :pattern into (rest-bars (* % 1))) tracks))
+
+;new track ex, for live player
+(def hh-track
+{:inst {:app :drumkv1
+        :drum :hi-hat
+        :type :percussive}
+ :pattern [{:dur :s :vel 50}
+           {:dur :s, :rest? true}
+           {:dur :s :vel 50}
+           {:dur :s, :rest? true}
+           {:dur :s :vel 75}
+           {:dur :s :vel 100}
+           {:dur :s :vel 127}
+           {:dur :s, :rest? true}
+           {:dur :s :vel 120}
+           {:dur :s, :rest? true}
+           {:dur :s :vel 30}
+           {:dur :s, :rest? true}
+           {:dur :s :vel 30}
+           {:dur :s, :rest? true}
+           {:dur :s :vel 30}
+           {:dur :s, :rest? true}]})

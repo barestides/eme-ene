@@ -29,14 +29,14 @@
    :pulse :q})
 
 (def swing-exp [{:inst-type :percussive,
-                 :inst-fn #function[eme-ene.generation.track/fn--20315],
+                 ;; :inst-fn #function[eme-ene.generation.track/fn--20315],
                  :pattern
                  [{:dur :s}
                   {:dur :s, :rest? true}
                   {:dur :s}
                   {:dur :s, :rest? true}
                   {:dur :s}
-                  {:dur :s, :rest? true}
+                  {:dur :s}
                   {:dur :s}
                   {:dur :s, :rest? true}
                   {:dur :s}
@@ -48,7 +48,7 @@
                   {:dur :s}
                   {:dur :s, :rest? true}]}
                 {:inst-type :percussive,
-                 :inst-fn #function[eme-ene.generation.track/fn--20311],
+                 ;; :inst-fn #function[eme-ene.generation.track/fn--20311],
                  :pattern
                  [{:dur :q}
                   {:dur :e, :rest? true}
@@ -57,7 +57,7 @@
                   {:dur :q}
                   {:dur :q, :rest? true}]}
                 {:inst-type :percussive,
-                 :inst-fn #function[eme-ene.generation.track/fn--20313],
+                 ;; :inst-fn #function[eme-ene.generation.track/fn--20313],
                  :pattern
                  ({:dur :q, :rest? true}
                   {:dur :q}
