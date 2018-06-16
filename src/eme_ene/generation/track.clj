@@ -18,7 +18,7 @@
 (defn times
   "Loop a pattern some number of times"
   [pattern num-times]
-  (apply concat (repeat num-times pattern)))
+  (into [] (apply concat (repeat num-times pattern))))
 
 (defn drum-tracklist
   [patterns]
@@ -102,3 +102,30 @@
            {:dur :s, :rest? true}
            {:dur :s :vel 30}
            {:dur :s, :rest? true}]})
+
+(defn drum-tracklist2
+  [drum->pattern]
+  (f/transform drum->pattern
+               {inst pattern}
+               [{:inst {:app :drumkv1
+                        :drum inst
+                        :type :percussive}
+                 :pattern pattern}]))
+
+(defn velocitize
+  [pattern]
+  (reduce (fn [so-far note]
+            (let [vel (if (= (mod (count (remove :rest? so-far)) 2) 1)
+                        70
+                        110)]
+              (conj so-far (assoc note :vel vel))))
+          [] pattern))
+
+;;these drum->pattern maps are useful for mocking stuff up, but need to be added to in order to be played
+(def base-sixteenth-map
+  {:hi-hat (velocitize (times [{:dur :s}] 16))
+   :kick (velocitize [{:dur :q} {:dur :e :rest? true} {:dur :s :rest? true} {:dur :s} {:dur :q} {:dur :q :rest? true}])
+   :snare (velocitize (times [{:dur :q :rest? true} {:dur :q}] 2))})
+
+(def base-bb-tracklist
+  (drum-tracklist2 base-sixteenth-map))

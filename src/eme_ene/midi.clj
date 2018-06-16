@@ -12,8 +12,8 @@
 
 ;;assuming `Virtual-Raw-MIDI-4.0` is hooked up to qsynth
 (def qsynth (first (filter #(re-find #":0,0" (:name %)) receivers)))
-(def drumkv1 (first (filter #(re-find #":0,1" (:name %)) receivers)))
-(def zynaddsubfx (first (filter #(re-find #":0,2" (:name %)) receivers)))
+(def drumkv1 (first (filter #(re-find #":0,2" (:name %)) receivers)))
+(def zynaddsubfx (first (filter #(re-find #":0,3" (:name %)) receivers)))
 
 (def apps
   {:drumkv1 drumkv1
@@ -118,7 +118,33 @@
    (fn [e]
      (when-let [control-fn (get notes->control-fns (:note e))]
              (control-fn state (:velocity e))))
-   ::blahblah))
+   ::controller-handler)
+
+  )
+
+;;these are the contents of the :data key of the events when each button is pressed
+(def akai-sysex-buttons
+  {[127, 127, 6, 2, -9] :play
+   [127, 127, 6, 6, -9] :record
+   [127, 127, 6, 1, -9] :stop
+   [127, 127, 6, 5, -9] :skip-back
+   [127, 127, 6, 4, -9] :skip-forward})
+
+(defn add-sysex-controls!
+  "`sysex-controls` is a map from buttons (the same buttons that are the vals in `akai-sysex-buttons`)
+  to functions that should be run when the specified button is pressed."
+  [state sysex-fns]
+  (event/on-event [:midi-device "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:0,2,12]"
+                   "VirMIDI, VirMidi, Virtual Raw MIDI" 0]
+                  (fn [e]
+                    ;;sometimes pressing the button will send two events, one that we want, and one that is nil
+                    (when-let [data (get-in e [:sysex :data])]
+                     (let [ ;;even though it looks like a vector, it is not
+                            data (into [] data)
+                            button (get akai-sysex-buttons data)]
+                       (when-let [sysex-fn (button sysex-fns)]
+                         (sysex-fn)))))
+                  ::sysex-handler))
 
 ;;play a chord with just one keypress!
 ;; (event/on-event [:midi-device "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:3,2,7]"

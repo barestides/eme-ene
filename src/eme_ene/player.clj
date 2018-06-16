@@ -149,10 +149,12 @@
                            (pulse nice-names->note-values)))
         swing (:swing @(:controls state))
         next-beat (+ (+ cur-beat real-dur) real-dur swing)]
-    (when (and @playing? (not rest?))
-      (at-at/at (nome cur-beat) #(inst-fn vel) pool))
-    (when (and @playing? (not-empty (rest pattern)))
-      (t/apply-by (nome next-beat) #'play-pattern2 [state (rest pattern) inst next-beat]))))
+    (if (not vel)
+      (prn "hey there's no velocity on the note. For whatever reason I can't throw an exception here")
+      (do (when (and @playing? (not rest?))
+            (at-at/at (nome cur-beat) #(inst-fn vel) pool))
+          (when (and @playing? (not-empty (rest pattern)))
+            (t/apply-by (nome next-beat) #'play-pattern2 [state (rest pattern) inst next-beat]))))))
 
 (defn play-track2
   [state track-id beat]

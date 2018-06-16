@@ -28,40 +28,24 @@
    :beat-granularity :s
    :pulse :q})
 
-(def hh-track {:inst {:app :drumkv1, :drum :hi-hat, :type :percussive},
-               :pattern
-               [{:dur :q :vel 100} {:dur :q :vel 80}
-                {:dur :q :vel 100} {:dur :q :vel 80}]
-               ;; [{:dur :s, :vel 50}
-               ;;  {:dur :s, :rest? true}
-               ;;  {:dur :s, :vel 50}
-               ;;  {:dur :s, :rest? true}
-               ;;  {:dur :s, :vel 75}
-               ;;  {:dur :s, :vel 100}
-               ;;  {:dur :s, :vel 127}
-               ;;  {:dur :s, :rest? true}
-               ;;  {:dur :s, :vel 120}
-               ;;  {:dur :s, :rest? true}
-               ;;  {:dur :s, :vel 30}
-               ;;  {:dur :s, :rest? true}
-               ;;  {:dur :s, :vel 30}
-               ;;  {:dur :s, :rest? true}
-               ;;  {:dur :s, :vel 30}
-               ;;  {:dur :s, :rest? true}]
-               })
-
 (def controls {:swing 0})
 
 (def state
-  (player/init-state {:bpm 120 :pulse :q} controls hh-track))
+  (apply player/init-state {:bpm 120 :pulse :q} controls track-gen/base-bb-tracklist))
 
 (def notes->control-fns
   {20 (fn [state val]
         (swap! (:controls state) assoc :swing (util/spy (/ (* val 0.25) 127))))})
 
+(def sysex-control-fns
+  {:play #(prn "you pressed play")}
+
+  )
+
 (defn start-player
   []
   (midi/add-controls! state notes->control-fns)
+  (midi/add-sysex-controls! state sysex-control-fns)
   (player/start-playing state))
 
 (defn try-mel

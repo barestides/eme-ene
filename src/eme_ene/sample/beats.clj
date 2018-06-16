@@ -32,9 +32,3 @@
    {:hh (track/times [{:dur :e :rest? true} {:dur :e :rest? true}] 4)
     :k (track/times [{:dur :q} {:dur :q :rest? true}] 2)
     :s (track/times [{:dur :q :rest? true} {:dur :q}] 2)}))
-
-(def base-sixteenth-map {:hh (track/times [{:dur :s}] 16)
-                         :k [{:dur :q} {:dur :e :rest? true} {:dur :s :rest? true} {:dur :s} {:dur :q} {:dur :q :rest? true}]
-                         :s (track/times [{:dur :q :rest? true} {:dur :q}] 2)})
-(def base-sixteenth-bb
-  (track/drum-tracklist base-sixteenth-map))
