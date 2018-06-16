@@ -110,6 +110,16 @@
                       (reset! up-down-pct new-val))))
                 ::up-down-pct-controller)
 
+(defn add-controls!
+  [state notes->control-fns]
+  (event/on-event
+   [:midi-device "ALSA (http://www.alsa-project.org)"
+    "VirMIDI [hw:0,2,14]" "VirMIDI, VirMidi, Virtual Raw MIDI" 0 :control-change]
+   (fn [e]
+     (when-let [control-fn (get notes->control-fns (:note e))]
+             (control-fn state (:velocity e))))
+   ::blahblah))
+
 ;;play a chord with just one keypress!
 ;; (event/on-event [:midi-device "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:3,2,7]"
 ;;                  "VirMIDI, VirMidi, Virtual Raw MIDI" 0 :note-on]

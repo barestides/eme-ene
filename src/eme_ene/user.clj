@@ -10,8 +10,8 @@
             [eme-ene.player :as player]
             [eme-ene.sample.beats :as beats]
             [eme-ene.sample.melodies :as mels]
+            [eme-ene.util.util :as util]
             [eme-ene.util.constants :refer :all]))
-
 
 (def config
   {:mode :aeolian
@@ -28,41 +28,41 @@
    :beat-granularity :s
    :pulse :q})
 
-(def swing-exp [{:inst-type :percussive,
-                 ;; :inst-fn #function[eme-ene.generation.track/fn--20315],
-                 :pattern
-                 [{:dur :s}
-                  {:dur :s, :rest? true}
-                  {:dur :s}
-                  {:dur :s, :rest? true}
-                  {:dur :s}
-                  {:dur :s}
-                  {:dur :s}
-                  {:dur :s, :rest? true}
-                  {:dur :s}
-                  {:dur :s, :rest? true}
-                  {:dur :s}
-                  {:dur :s, :rest? true}
-                  {:dur :s}
-                  {:dur :s, :rest? true}
-                  {:dur :s}
-                  {:dur :s, :rest? true}]}
-                {:inst-type :percussive,
-                 ;; :inst-fn #function[eme-ene.generation.track/fn--20311],
-                 :pattern
-                 [{:dur :q}
-                  {:dur :e, :rest? true}
-                  {:dur :s, :rest? true}
-                  {:dur :s}
-                  {:dur :q}
-                  {:dur :q, :rest? true}]}
-                {:inst-type :percussive,
-                 ;; :inst-fn #function[eme-ene.generation.track/fn--20313],
-                 :pattern
-                 ({:dur :q, :rest? true}
-                  {:dur :q}
-                  {:dur :q, :rest? true}
-                  {:dur :q})}])
+(def hh-track {:inst {:app :drumkv1, :drum :hi-hat, :type :percussive},
+               :pattern
+               [{:dur :q :vel 100} {:dur :q :vel 80}
+                {:dur :q :vel 100} {:dur :q :vel 80}]
+               ;; [{:dur :s, :vel 50}
+               ;;  {:dur :s, :rest? true}
+               ;;  {:dur :s, :vel 50}
+               ;;  {:dur :s, :rest? true}
+               ;;  {:dur :s, :vel 75}
+               ;;  {:dur :s, :vel 100}
+               ;;  {:dur :s, :vel 127}
+               ;;  {:dur :s, :rest? true}
+               ;;  {:dur :s, :vel 120}
+               ;;  {:dur :s, :rest? true}
+               ;;  {:dur :s, :vel 30}
+               ;;  {:dur :s, :rest? true}
+               ;;  {:dur :s, :vel 30}
+               ;;  {:dur :s, :rest? true}
+               ;;  {:dur :s, :vel 30}
+               ;;  {:dur :s, :rest? true}]
+               })
+
+(def controls {:swing 0})
+
+(def state
+  (player/init-state {:bpm 120 :pulse :q} controls hh-track))
+
+(def notes->control-fns
+  {20 (fn [state val]
+        (swap! (:controls state) assoc :swing (util/spy (/ (* val 0.25) 127))))})
+
+(defn start-player
+  []
+  (midi/add-controls! state notes->control-fns)
+  (player/start-playing state))
 
 (defn try-mel
   []

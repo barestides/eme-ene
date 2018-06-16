@@ -147,7 +147,8 @@
         {:keys [dur rest? vel]} (first pattern)
         real-dur (float (/ (dur nice-names->note-values)
                            (pulse nice-names->note-values)))
-        next-beat (+ (+ cur-beat real-dur) real-dur)]
+        swing (:swing @(:controls state))
+        next-beat (+ (+ cur-beat real-dur) real-dur swing)]
     (when (and @playing? (not rest?))
       (at-at/at (nome cur-beat) #(inst-fn vel) pool))
     (when (and @playing? (not-empty (rest pattern)))
@@ -160,7 +161,6 @@
         {:keys [pattern inst]} track
         pattern-length (a/melody-length (:pattern track) (:pulse state))
         next-beat (+ pattern-length beat)]
-    (prn "playing track")
     (at-at/at (nome beat) #(play-pattern2 state pattern inst beat) pool)
     (when @(:playing? state)
       (t/apply-by (nome next-beat) #'play-track2 [state track-id next-beat]))))
@@ -195,6 +195,18 @@
              0
              (inc (apply max (keys @tracks))))]
     (swap! tracks assoc id track)))
+
+(defn init-state
+  [config controls & tracks]
+  (let [{:keys [bpm pulse]} config
+        state {:tracks (atom {})
+               :controls (atom controls)
+               :nome (r/metronome bpm)
+               :playing? (atom false)
+               :pulse pulse}]
+    (doseq [track tracks]
+      (add-track! state track))
+    state))
 
 (defn remove-track!
   [state track-id]
