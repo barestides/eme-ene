@@ -1,5 +1,6 @@
 (ns eme-ene.generation.track
-  (:require [eme-ene.midi :as midi]
+  (:require [faconne.core :as f]
+            [eme-ene.midi :as midi]
             [eme-ene.util.constants :refer :all]))
 
 ;;this isn't really generation, more like helpers for making tracks.
@@ -10,25 +11,34 @@
    :s #(midi/drumkv1-inst :snare)
    :hh #(midi/drumkv1-inst :hi-hat)
    :bass (partial midi/qsynth-inst :bass)
-   :piano (partial midi/qsynth-inst :piano)})
+   :piano (partial midi/qsynth-inst :piano)
+   :zyn-piano (partial midi/zynaddsubfx-inst :piano)
+   :zyn-bass (partial midi/zynaddsubfx-inst :bass)})
 
 (defn times
   "Loop a pattern some number of times"
   [pattern num-times]
   (apply concat (repeat num-times pattern)))
 
+(defn drum-tracklist
+  [patterns]
+  (f/transform patterns
+               {inst pattern}
+               [{:inst-type :percussive
+                 :inst-fn (inst inst-fns)
+                 :pattern pattern}]))
 
 (def kick-track {:name "Kick"
-                        :inst-type :percussive
-                        :inst-fn (:k inst-fns)
+                 :inst-type :percussive
+                 :inst-fn (:k inst-fns)
                  :pattern (times [{:dur :q} {:dur :q :rest? true} {:dur :q} {:dur :q :rest? true}]
                                  2)})
 
 (def snare-track {:name "Snare"
-                        :inst-type :percussive
-                        :inst-fn (:s inst-fns)
-                        :pattern (times [{:dur :q :rest? true} {:dur :q} {:dur :q :rest? true} {:dur :q}]
-                                        2)})
+                  :inst-type :percussive
+                  :inst-fn (:s inst-fns)
+                  :pattern (times [{:dur :q :rest? true} {:dur :q} {:dur :q :rest? true} {:dur :q}]
+                                  2)})
 
 (def bass-track {:name "Bass"
                  :inst-type :melodic

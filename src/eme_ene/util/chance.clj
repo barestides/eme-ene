@@ -1,5 +1,6 @@
 (ns eme-ene.util.chance
-  (:require [overtone.algo.chance :as chance]))
+  (:require [overtone.algo.chance :as chance]
+            [faconne.core :as f]))
 
 (defn weighted-choose
   "Returns an element from list vals based on the corresponding
@@ -46,3 +47,23 @@
        (if (< rand-num (ffirst summed))
          (second (first summed))
          (recur (rest summed)))))))
+
+(defn weight-vals
+  "Return a map to be passed into `weighted-choose`. New weight calculated based off of old weight and result
+  of (weight-fn val). `effect` is a value from 0 to 1. At 1, only the result of the weight function will be used to
+  calculate the new weight. At 0, the result will be ignored and the old weight value will be used."
+  ;;need a better name than "effect", maybe `weight-weight` :'D
+  [weighted-map weight-fn effect]
+  (let [vals->results (f/transform weighted-map {k _} {k (weight-fn k)})
+        total (apply + (vals vals->results))]
+    (into {}
+          (for [[val result] vals->results]
+            (let [original-weight (get weighted-map val)
+                  fn-weight (float (/ result total))
+                  new-weight (+ (* fn-weight effect) (* original-weight (- 1 effect)))]
+              {val new-weight})))))
+
+(defn make-even-weighted-map
+  [vals]
+  (let [weight (float (/ 1 (count vals)))]
+    (f/transform vals [v] {v weight})))

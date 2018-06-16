@@ -18,8 +18,9 @@
   (< (rand) percent))
 
 (defn spy
-  [& args]
-  (apply pprint/pprint args))
+  [x]
+  (pprint/pprint x)
+  x)
 
 (defn index-by
   "Returns a map, where for each x in coll, (f x) is the key

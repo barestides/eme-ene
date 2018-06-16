@@ -3,6 +3,7 @@
             [overtone.music.time :as t]
             [overtone.music.rhythm :as r]
             [overtone.at-at :as at-at]
+            [overtone.algo.chance :as chance]
             [eme-ene.util.util :as util]
             [eme-ene.util.chance :as cu]
             [eme-ene.midi :as midi]
@@ -10,32 +11,31 @@
 
 (def player-state
   {:metronome (r/metronome 90)
-   :pulse-note :q
-   :playing (atom true)})
+   :pulse :q
+   :playing (atom true)
+   :controls (atom {})})
 
 (def pool (at-at/mk-pool))
 
+(defn swing
+  [real-dur]
+
+  (+ (chance/ranged-rand (+ (* 0.70 0.15 real-dur)) 0)
+     (* 0.47 real-dur)))
+
 (defn play-drum-pattern
-  [nome beat pattern inst-fn pulse]
-  (let [{:keys [dur rest?]} (first pattern)
+  [state beat pattern inst-fn]
+  (let [{nome :metronome pulse :pulse} state
+        {:keys [dur rest?]} (first pattern)
         real-dur (float (/ (dur nice-names->note-values)
                            (pulse nice-names->note-values)))
-        next-note (+ beat real-dur)]
+        next-note (+ (+ beat real-dur) (swing real-dur))]
     (when-not rest? (at-at/at (nome beat) inst-fn pool))
     (when (not-empty (rest pattern))
-      (t/apply-by (nome next-note) #'play-drum-pattern [nome next-note (rest pattern) inst-fn pulse]))))
+      (t/apply-by (nome next-note) #'play-drum-pattern [state next-note (rest pattern) inst-fn]))))
 
 ;;melodic tracks are different because the inst fn needs the specific note and the duration.
 ;;it's not just an impulse like percussive
-
-;;we have to decide how to to treat pitch. Obviously at the point where we're sending it to the midi
-;;receiver, it needs to be a midi number
-
-;;ok the real-dur is messed up. it needs to be in millis. Also, it needs to use the bpm of the metronome
-;;somehow
-
-;;an eighth note played at 120bpm with the pulse on the quarter note should play for 0.25s, or 250millis
-;;because there is one quarter note per beat, so every 0.5s, and an eighth note is 1/2 of a quarter note
 
 ;;jinkies probs move this to a utils ns
 ;;also make it not fuck ugly
@@ -48,22 +48,40 @@
                                         60))))
        1000)))
 
-(defn play-melodic-pattern
-  [nome beat pattern inst-fn pulse]
-  (let [{:keys [dur rest? pitch]} (first pattern)
+(defn play-one-note
+  [state inst-fn {:keys [pitch dur rest?]}]
+  (let [{:keys [pulse metronome]} state
+        real-dur (real-dur dur pulse metronome)
+        midi-note (:midi pitch)]
+    (when-not rest? (inst-fn midi-note real-dur))))
 
-        ;;however, we need to consider that inst-fns might not always expect a midi note, maybe they
-        ;;expect a freq. I think this is ok for now though
-        midi-note (:midi pitch)
+(defn play-chord
+  [state chord inst-fn]
+  (doseq [note chord]
+    (play-one-note state inst-fn note)))
+
+(defn play-melodic-pattern
+  [state beat pattern inst-fn]
+  (let [note-or-chord (first pattern)
+        dur (or (-> note-or-chord
+                    :dur
+                    nice-names->note-values)
+                (apply max (map (comp nice-names->note-values :dur) note-or-chord)))
+        {:keys [pulse metronome]} state
         ;;this is so ugly but idgaf
-        dur-to-pulse (float (/ (dur nice-names->note-values)
+        dur-to-pulse (float (/ dur
                                (pulse nice-names->note-values)))
-        real-dur (real-dur dur pulse nome)
         next-note (+ beat dur-to-pulse)]
-    (when-not rest? (at-at/at (nome beat) #(inst-fn midi-note real-dur) pool))
+    (at-at/at (metronome beat)
+              ;;We'll treat chords as vectors for now
+              (if (map? note-or-chord)
+                #(play-one-note state inst-fn note-or-chord)
+                #(play-chord state note-or-chord inst-fn))
+              pool)
+
     (when (not-empty (rest pattern))
-      (t/apply-by (nome next-note) #'play-melodic-pattern
-                  [nome next-note (rest pattern) inst-fn pulse]))))
+      (t/apply-by (metronome next-note) #'play-melodic-pattern
+                  [state next-note (rest pattern) inst-fn]))))
 
 ;;I bet we can do some cool macro shit to allow us to have special chars denoting a rest, rather than
 ;;calling a function that just returns a normal note map
@@ -75,16 +93,16 @@
   [state track]
   (let [{:keys [pulse-note metronome]} state
         {:keys [inst-fn pattern]} track]
-    (play-drum-pattern metronome (metronome) pattern inst-fn pulse-note)))
+    (play-drum-pattern state (metronome) pattern inst-fn)))
 
 (defn play-track
   [state track]
-  (let [{:keys [pulse-note metronome]} state
+  (let [beat ((:metronome state))
         {:keys [inst-fn pattern inst-type]} track
         player (case inst-type
                  :percussive play-drum-pattern
                  :melodic play-melodic-pattern)]
-    (player metronome (metronome) pattern inst-fn pulse-note)))
+    (player state beat pattern inst-fn)))
 
 ;;`tracklist` - vector of maps; each map is a `track`
 ;;each `track` contains:

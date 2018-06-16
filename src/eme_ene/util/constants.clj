@@ -1,10 +1,5 @@
 (ns eme-ene.util.constants)
 
-;;is this useful?
-(def QUARTER 0.25)
-(def HALF 0.5)
-(def WHOLE 1)
-
 (def modes->ints
   {:ionian     #{0 2 4 5 7 9 11}
    :dorian     #{0 2 3 5 7 9 10}

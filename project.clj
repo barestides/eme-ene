@@ -6,7 +6,10 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [overtone "0.10.1"]
                  [com.taoensso/timbre "4.10.0"] ;;logging
-                 [fipp "0.6.12"]]               ;;pretty printer
+                 [fipp "0.6.12"]                ;;pretty printer
+                 [faconne "1.0.3"]              ;;advanced map destructuring
+                 ]
+
   :main ^:skip-aot eme-ene.core
   :jvm-opts ^:replace []
   :target-path "target/%s"

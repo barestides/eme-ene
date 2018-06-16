@@ -5,13 +5,15 @@
             [overtone.at-at :as at-at]
             [overtone.music.time :as t]
             [overtone.music.rhythm :as r]
-            [eme-ene.util.constants :refer :all]))
+            [eme-ene.util.constants :refer :all]
+            [eme-ene.util.util :as util]))
 
 (def receivers (omidi/midi-connected-receivers))
 
 ;;assuming `Virtual-Raw-MIDI-4.0` is hooked up to qsynth
-(def qsynth (first (filter #(re-find #":3,0" (:name %)) receivers)))
-(def drumkv1 (first (filter #(re-find #":3,1" (:name %)) receivers)))
+(def qsynth (first (filter #(re-find #":0,0" (:name %)) receivers)))
+(def drumkv1 (first (filter #(re-find #":0,1" (:name %)) receivers)))
+(def zynaddsubfx (first (filter #(re-find #":0,2" (:name %)) receivers)))
 
 ;;we should definitely track these in state and allow them to be changeable
 ;; https://github.com/barestides/eme-ene/issues/10
@@ -23,6 +25,10 @@
   {:bass 2
    :piano 0})
 
+(def inst->zyn-channel
+  {:bass 0
+   :piano 1})
+
 ;;these should be more generic, we really have just melodic and percussive, but we could have different receivers
 (defn drumkv1-inst
   [inst]
@@ -31,6 +37,10 @@
 (defn qsynth-inst
   [inst midi-note dur]
   (omidi/midi-note qsynth midi-note 100 dur (inst inst->qsynth-channel)))
+
+(defn zynaddsubfx-inst
+  [inst midi-note dur]
+  (omidi/midi-note zynaddsubfx midi-note 100 dur (inst inst->zyn-channel)))
 
 (def loop-state
   {:metronome (r/metronome 120)
@@ -45,15 +55,29 @@
 (def step-skip-pct (atom 0.5))
 (def up-down-pct (atom 0.5))
 
-(event/on-event [:midi-device "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:3,2,7]"
-                 "VirMIDI, VirMidi, Virtual Raw MIDI" 0 :control-change]
+(event/on-event [:midi-device
+                 "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:0,2,7]" "VirMIDI, VirMidi, Virtual Raw MIDI" 0]
                 (fn [e]
-                  (when (= (:note e) 20)
-                    (let [new-val (* (:velocity e) (float (/ 1 127)))]
-                      (reset! step-skip-pct new-val))))
+                  (util/spy (get-in e [:sysex :data]))
+                  ;; (when (= (:note e) 20)
+                  ;;   (let [new-val (* (:velocity e) (float (/ 1 127)))]
+                  ;;     (reset! step-skip-pct new-val)))
+                  )
                 ::step-skip-pct-controller)
 
-(event/on-event [:midi-device "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:3,2,7]"
+(event/on-event [:midi-device "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:0,2,7]"
+                 "VirMIDI, VirMidi, Virtual Raw MIDI"
+
+                 ]
+                (fn [e]
+                  (prn "we goin")
+                  ;; (when (= (:note e) 20)
+                  ;;   (let [new-val (* (:velocity e) (float (/ 1 127)))]
+                  ;;     (reset! step-skip-pct new-val)))
+                  )
+                ::step-skip-pct-controller)
+
+(event/on-event [:midi-device "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:0,2,7]"
                  "VirMIDI, VirMidi, Virtual Raw MIDI" 0 :control-change]
                 (fn [e]
                   (when (= (:note e) 23)

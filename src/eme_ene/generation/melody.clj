@@ -1,5 +1,6 @@
 (ns eme-ene.generation.melody
   (:require [taoensso.timbre :refer  [debug]]
+            [eme-ene.util.chance :as cu]
             [eme-ene.analyzer :as a]
             [eme-ene.util.pitch :as pu]
             [eme-ene.util.constants :refer :all]
@@ -8,11 +9,11 @@
 ;;There could be smarter versions of both of these
 (def possible-durs
   {:e [:h :q :e :de :dq]
-   :s [:de :s :e]
+   :s [:e]
    :qs [:s :e]})
 
 (def strength-orderings
-  {:e [1 3 2 4 1.5 3.5 2.5 4.5]
+  {:e [0.0 2.0 1.0 3.0 0.5 2.5 1.5 3.5]
    ;;not right:
    :s [1 3 2 4 1.5 3.5 2.5 4.5]})
 
@@ -20,12 +21,14 @@
 ;;1 is the strongest, then 3, then 2, then 4
 (defn beat-strength
   [beat granularity]
-  (let [strength-ordering (granularity strength-orderings)]
-    (as-> beat $
-      (mod $ 4)
-      (.indexOf strength-ordering $)
-      (inc $)
-      (float (/ $ (count strength-ordering))))))
+  (let [strength-ordering (granularity strength-orderings)
+        ;;lower is stronger, just go with it
+        strength-of-beat (as-> beat $
+                           (mod $ 4)
+                           (util/spy $)
+                           (.indexOf strength-ordering $)
+                           (float (/ $ (count strength-ordering))))]
+    strength-of-beat))
 
 (defn notes-in-range-and-key
   [config]
@@ -66,21 +69,54 @@
                            (/ 1 mel-completeness))]
     (filter (partial smoothness-filter mel smoothness-range smoothness-index dur pulse) notes)))
 
-(defn np
+(defn filter-pitch-picker
   [config mel dur]
-  (let [{:keys [tonic]} config
+  (let [{:keys [tonic pulse]} config
         notes-in-range-and-key (notes-in-range-and-key config)
+        beat (a/melody-length mel pulse)
         avail-notes (cond
                       (empty? mel)
                       #{(pu/pitch-map-for-midi tonic)}
 
                       :else
                       (notes-in-smoothness-range config notes-in-range-and-key mel dur))
+        ;;use the beat strength and the harmonic closeness of the avail notes to create a thing to pass to a weighted
+        ;;choose.
         midi-note (rand-nth (into [] avail-notes))]
+    (prn (count avail-notes))
     midi-note))
+
+(defn mode-weight-fn
+  "Returns 1 if the pitch is in the mode of the config. Returns 0 otherwise."
+  [config pitch]
+  (let [{:keys [mode tonic]} config
+        intervals (mode modes->ints)
+        pitch-interval (mod (- pitch tonic) 12)]
+    (if (contains? intervals pitch-interval)
+      1
+      0)))
+
+(defn weighted-pitch-picker
+  [config mel dur]
+  (let [{:keys [tonic floor ceiling mode-adherence]} config
+        pitches-in-range (range (- tonic floor) (inc (+ tonic ceiling)))
+        pitches (cu/make-even-weighted-map pitches-in-range)
+        last-pitch (or (-> mel last :pitch :midi) tonic)
+        weighted-pitches (-> pitches
+                             (cu/weight-vals (partial mode-weight-fn config) mode-adherence)
+                             (cu/weight-vals (fn [pitch]
+                                               (let [diff (Math/abs (- last-pitch pitch))]
+                                                 (if (zero? diff)
+                                                   1000
+                                                   1)))
+                                             1))]
+    (pu/pitch-map-for-midi (cu/weighted-choose weighted-pitches))))
 
 ;;ex config
 {:mode :ionian
+ ;;1->never play notes outside of the mode
+ ;;0->don't weight notes in the mode heavier at all
+ :mode-adherence 1.0
  :tonic 60
  ;;relative to the tonic, if tonic is c4 and floor is 6, no notes lower than f#3(?) will be played
  :floor 12
@@ -100,9 +136,7 @@
      (cond
 
        (= cur-beat len-beats)
-       (do
-         (prn "smoothness index: " (a/smoothness-index mel pulse))
-         mel)
+       mel
 
        :else
        (let [remainder (- len-beats cur-beat)
@@ -111,6 +145,6 @@
                                                             (nice-names->note-values pulse))))
                                    (beat-granularity possible-durs)))
              last-pitch (or (:pitch (last mel)) tonic)
-             pitch (np config mel dur)]
+             pitch (filter-pitch-picker config mel dur)]
          ;;dur for note can't be greater than remainder
          (recur config (conj mel {:pitch pitch :dur dur})))))))
