@@ -12,7 +12,7 @@
 
 ;;assuming `Virtual-Raw-MIDI-4.0` is hooked up to qsynth
 (def qsynth (first (filter #(re-find #":0,0" (:name %)) receivers)))
-(def drumkv1 (first (filter #(re-find #":0,2" (:name %)) receivers)))
+(def drumkv1 (first (filter #(re-find #":0,1" (:name %)) receivers)))
 (def zynaddsubfx (first (filter #(re-find #":0,3" (:name %)) receivers)))
 
 (def apps
@@ -83,7 +83,7 @@
 (event/on-event [:midi-device
                  "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:0,2,7]" "VirMIDI, VirMidi, Virtual Raw MIDI" 0]
                 (fn [e]
-                  (util/spy (get-in e [:sysex :data]))
+                  (get-in e [:sysex :data])
                   ;; (when (= (:note e) 20)
                   ;;   (let [new-val (* (:velocity e) (float (/ 1 127)))]
                   ;;     (reset! step-skip-pct new-val)))
@@ -117,10 +117,8 @@
     "VirMIDI [hw:0,2,14]" "VirMIDI, VirMidi, Virtual Raw MIDI" 0 :control-change]
    (fn [e]
      (when-let [control-fn (get notes->control-fns (:note e))]
-             (control-fn state (:velocity e))))
-   ::controller-handler)
-
-  )
+       (control-fn state (:velocity e))))
+   ::controller-handler))
 
 ;;these are the contents of the :data key of the events when each button is pressed
 (def akai-sysex-buttons
@@ -131,7 +129,7 @@
    [127, 127, 6, 4, -9] :skip-forward})
 
 (defn add-sysex-controls!
-  "`sysex-controls` is a map from buttons (the same buttons that are the vals in `akai-sysex-buttons`)
+  "`sysex-fns` is a map from buttons (the same buttons that are the vals in `akai-sysex-buttons`)
   to functions that should be run when the specified button is pressed."
   [state sysex-fns]
   (event/on-event [:midi-device "ALSA (http://www.alsa-project.org)" "VirMIDI [hw:0,2,12]"
@@ -143,7 +141,7 @@
                             data (into [] data)
                             button (get akai-sysex-buttons data)]
                        (when-let [sysex-fn (button sysex-fns)]
-                         (sysex-fn)))))
+                         (sysex-fn state)))))
                   ::sysex-handler))
 
 ;;play a chord with just one keypress!

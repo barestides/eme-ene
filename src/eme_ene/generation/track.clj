@@ -7,9 +7,9 @@
 ;;There will be generation, maybe the stuff here should move to a new ns
 
 (def inst-fns
-  {:k #(midi/drumkv1-inst :kick)
-   :s #(midi/drumkv1-inst :snare)
-   :hh #(midi/drumkv1-inst :hi-hat)
+  {:kick #(midi/drumkv1-inst :kick)
+   :snare #(midi/drumkv1-inst :snare)
+   :hi-hat #(midi/drumkv1-inst :hi-hat)
    :bass (partial midi/qsynth-inst :bass)
    :piano (partial midi/qsynth-inst :piano)
    :zyn-piano (partial midi/zynaddsubfx-inst :piano)
@@ -116,7 +116,7 @@
   [pattern]
   (reduce (fn [so-far note]
             (let [vel (if (= (mod (count (remove :rest? so-far)) 2) 1)
-                        70
+                        85
                         110)]
               (conj so-far (assoc note :vel vel))))
           [] pattern))

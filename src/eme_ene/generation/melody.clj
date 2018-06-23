@@ -83,7 +83,7 @@
         ;;use the beat strength and the harmonic closeness of the avail notes to create a thing to pass to a weighted
         ;;choose.
         midi-note (rand-nth (into [] avail-notes))]
-    (prn (count avail-notes))
+    (count avail-notes)
     midi-note))
 
 (defn mode-weight-fn
@@ -113,7 +113,7 @@
     (pu/pitch-map-for-midi (cu/weighted-choose weighted-pitches))))
 
 ;;ex config
-{:mode :ionian
+{:mode :aeolian
  ;;1->never play notes outside of the mode
  ;;0->don't weight notes in the mode heavier at all
  :mode-adherence 1.0
@@ -124,14 +124,14 @@
  :smoothness-index 6.0
  :len-beats 4.0
  ;;The generator will only place notes as fine as the `beat-granularity` is specified.
- :beat-granularity :s
+ :avail-durs [:s :e]
  :pulse :q}
 
 (defn mel-gen
   ([config]
    (mel-gen config []))
   ([config mel]
-   (let [{:keys [beat-granularity pulse len-beats tonic]} config
+   (let [{:keys [avail-durs pulse len-beats tonic]} config
          cur-beat (a/melody-length mel pulse)]
      (cond
 
@@ -139,11 +139,12 @@
        mel
 
        :else
-       (let [remainder (- len-beats cur-beat)
+       (let [
+             remainder (- len-beats cur-beat)
              ;;hey this needs to change so that triplets can work
              dur (rand-nth (filter #(>= remainder (float (/ (nice-names->note-values %)
                                                             (nice-names->note-values pulse))))
-                                   (beat-granularity possible-durs)))
+                                   avail-durs))
              last-pitch (or (:pitch (last mel)) tonic)
              pitch (filter-pitch-picker config mel dur)]
          ;;dur for note can't be greater than remainder
