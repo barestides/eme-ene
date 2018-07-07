@@ -52,14 +52,101 @@
   [notes shift]
   (cond
     (pos? shift) (recur (inc-first notes 12) (dec shift))
-    (neg? shift) (recur (util/spy (dec-last notes 12)) (inc shift))
+    (neg? shift) (recur (dec-last notes 12) (inc shift))
     (zero? shift) notes))
 
 (defn pitch-map-for-midi
   [midi]
   (get (util/index-by :midi pitches) midi))
 
+(defn pitch-map-for-name
+  [pitch-name]
+  (get (util/index-by :name pitches) pitch-name))
+
 (defn plus-pitch
   [args]
   (let [midi-note (reduce #(+ (or (:midi %) %) (or (:midi %2) %2)) 0 args)]
     (pitch-map-for-midi midi-note)))
+
+(defn stringify-pitch
+  [pitch]
+  (if pitch
+    (clojure.string/lower-case (name pitch))
+    ""))
+
+(defn pitch-maps-for-pitch-class
+  [pitch-class]
+  (filter #(= (stringify-pitch pitch-class)
+              (->> %
+                   :name
+                   stringify-pitch
+                   (re-find #"[^\d]*")))
+          pitches))
+
+(defn pitch-map-for-pclass-and-octave
+  [pclass octave]
+  (or (first (filter #(= (stringify-pitch (:name %)) (stringify-pitch (str (name pclass) octave))) pitches))
+      (throw (Exception. (str "Pitch does not exist for pitch class=" pclass " and octave=" octave)))))
+
+(defn pitch-type
+  [pitch]
+  (cond (keyword? pitch)
+        :name
+
+        (integer? pitch)
+        :midi
+
+        (float? pitch)
+        :freq))
+
+(defn flesh-out-pitch
+  [pitch]
+  (case (pitch-type pitch)
+
+    :name
+    (pitch-map-for-name pitch)
+
+    :midi
+    (pitch-map-for-midi pitch)))
+
+(defmacro defpitchfn
+  "pitch fns always expect pitch maps (see constants/pitches), but when using them, we don't want to have to construct
+  the whole map just to use the fn (like in mel-gens), that would be messy.
+
+  this macro will transform arguments that can be midi notes (e.g. 96, 49), or note names (e.g. :f#3 :g2), into
+  fully fleshed out note maps before passing them to the function.
+
+  these arguments should contain `pitch-map` in their name.
+
+  Forces the function to return a pitch of the same type as the first pitch-map arg. If note names are passed,
+  a note name will be returned.
+
+  I don't know if this is the best approach, but it's better than manually making the maps everywhere "
+  [fn-name args body]
+  `(defn ~fn-name
+     ~args
+     ;;I'd rather return-type be in the let, but that gets trick because it gets namespaced or something
+     (def return-type# (pitch-type ~(first (filter #(re-find #"pitch-map" (str %)) args))))
+     (let ~(into []
+                 (apply concat (mapv (fn [arg]
+                                       [arg (if (re-find #"pitch-map" (str arg))
+                                              `(flesh-out-pitch ~arg)
+                                              arg)])
+                                     args)))
+       (get ~body return-type#))))
+
+;;this could probably be more efficient
+;;should also allow one to specify octaves
+(defpitchfn closest-pitch
+  [source-pitch-map target-pitch-class direction]
+  (first
+   (sort-by
+    #(Math/abs (- (:midi source-pitch-map) (:midi %)))
+    (filter #(case direction
+               :up   (< (:midi source-pitch-map) (:midi %))
+               :down (> (:midi source-pitch-map) (:midi %)))
+            (pitch-maps-for-pitch-class target-pitch-class)))))
+
+(defn pitches-between
+  [lower upper]
+  (filter #(< (:midi lower) (:midi %) (:midi upper)) pitches))
