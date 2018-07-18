@@ -1,5 +1,7 @@
 (ns eme-ene.generation.melody
-  (:require [taoensso.timbre :refer  [debug]]
+  (:require [taoensso.timbre :refer [debug]]
+            [overtone.algo.chance :as chance]
+            [eme-ene.util.rhythm :as ru]
             [eme-ene.util.chance :as cu]
             [eme-ene.analyzer :as a]
             [eme-ene.util.pitch :as pu]
@@ -124,7 +126,7 @@
  :smoothness-index 6.0
  :len-beats 4.0
  ;;The generator will only place notes as fine as the `beat-granularity` is specified.
- :avail-durs [:s :e]
+ :avail-durs [:s :et]
  :pulse :q}
 
 (defn mel-gen
@@ -149,3 +151,111 @@
              pitch (filter-pitch-picker config mel dur)]
          ;;dur for note can't be greater than remainder
          (recur config (conj mel {:pitch pitch :dur dur})))))))
+
+
+;;The idea here is that all the attributes in a transition-config could be changed to create a similar, but
+;;different melody based off of an original melody.
+
+(def dest-config
+  ;;destinations might not be necessary, but it makes more sense for using this
+  {:first-pitch (pu/pitch-map-for-name :f#4)
+   :transition-configs  [{:saturation 1.0
+                          :direction :up
+                          :target :d#
+                          :inversions 0
+                          :pulse :q
+                          :possible-durs [:e :et]
+                          :len-beats 3.0}
+                         {:saturation 1.0
+                          :direction :down
+                          :inversions 1
+                          :pulse :q
+                          :possible-durs [:e :s]
+                          :target :c#
+                          :len-beats 2.0}]
+   :key [:c :minor]})
+
+;;slots are just notes without pitches filled in, so just durs. the durs of the notes between should probably always
+;;be shorter than the shortest destination, or be on weak beats, but that's a later problem
+;;we can start by just randomly picking eighth and sixteenth notes
+
+(defn plot-durs
+  [config]
+  (let [{:keys [possible-durs len-beats pulse inversions]} config
+        ;;number of allowable pitch inversions depends on number of slots between notes.
+        ;;At least 2 slots are needed for every inversion
+        allowable-combos (filter #(> (apply + %) (* inversions 2))
+                                 (ru/allowable-dur-counts possible-durs len-beats pulse))]
+    (shuffle (flatten (map (fn [note number] (repeat number note)) possible-durs (rand-nth allowable-combos))))))
+
+;;if we are going from pitch to pitch, and have 0 inversions, we always move in the same direction, or don't move at
+;;all. Note that this has no concept of up/down. 1 does not mean up, -1 does not mean down. 1 just means the same
+;;direction as the "general" direction, -1 means the opposite.
+(defn plot-directions
+  "Returns a vector of direction indications for each note. 1 means same direction the melody is moving,
+  -1 means opposite, 0 means same note."
+  [inversions num-notes]
+  (if (= 0 inversions)
+    (into [] (repeat num-notes 1))
+    (let [same-or-neutral-count (- num-notes inversions)
+          same-or-neutral (repeatedly same-or-neutral-count #(chance/choose [0 1]))
+          ;;the tricky part is inserting the reversals (-1s) in a way that no two are next to each other
+          ;;there's probably a cleaner way to do this, but I'm happy with it
+          reverse-dirs (shuffle (concat (repeat inversions -1) (repeat (- same-or-neutral-count inversions) nil)))]
+      ;;shuffle so that we don't always start on an inversion or a same
+      (->> (apply interleave (shuffle [same-or-neutral reverse-dirs]))
+           (remove nil?)))))
+
+(defn pick-pitch
+  [pitches main-dir result direction]
+  (prn direction)
+  (let [last-pitch (last result)
+        real-dir (case direction
+                   0 :same
+                   1  (if (= main-dir :up) :up :down)
+                   -1 (if (= main-dir :up) :down :up))
+        next-pitch (case real-dir
+                     :same last-pitch
+                     :up (chance/choose (util/spy (filter (partial pu/above-pitch? last-pitch) pitches)))
+                     :down (chance/choose (filter (partial pu/below-pitch? last-pitch) pitches)))]
+    (conj result next-pitch)))
+
+(defn plot-mel
+  [mel trans-config mel-config]
+  (let [{:keys [saturation direction source target len-beats inversions]} trans-config
+        key (:key mel-config)
+        last-note (last mel)
+        target-pitch (pu/closest-pitch (:pitch last-note) target direction)
+        durs (plot-durs trans-config)
+        pitches-between (pu/pitches-between (pu/plus (:pitch last-note) (if (= direction :up)
+                                                                          -5
+                                                                          5))
+                                            (pu/plus target-pitch (if (= direction :up)
+                                                                    5
+                                                                    -5)))
+        dirs (plot-directions inversions (count durs))
+        key-filtered (filter (partial pu/in-key? key) pitches-between)
+        pitches-to-plot (let [sorted (pu/sort-pitches (take (count durs) (shuffle key-filtered)))]
+                          (if (= direction :up)
+                            sorted
+                            (reverse sorted)))
+        ;;rest because we don't want the last pitch in here, but it's needed to compute
+        pitches-to-plot2 (rest (reduce (partial pick-pitch pitches-between direction) [(:pitch last-note)] dirs))]
+    (conj (apply conj mel (mapv (fn [dur pitch] {:dur dur :pitch pitch}) durs pitches-to-plot2))
+          {:pitch target-pitch
+           :dur :q})))
+
+(defn destination-mel-gen
+  [config]
+  (let [{:keys [first-pitch transition-configs octave]} config
+        ;; octavized-dests (reduce
+        ;;                  (fn [result trans]
+        ;;                    (conj result (pu/closest-pitch (last result) (:target trans) (:direction trans))))
+        ;;                  [(pu/pitch-map-for-pclass-and-octave (first destinations) octave)]
+        ;;                  transition-configs)
+        ]
+    ;; (flatten (interleave destinations (map plot-mel transition-configs)))
+    (reduce (fn [mel trans-config]
+              (plot-mel mel trans-config config)) [{:dur :q :pitch first-pitch}] transition-configs)
+    ;; (map (fn [pitch] {:pitch pitch :dur :q}) octavized-dests)
+    ))

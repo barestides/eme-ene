@@ -83,6 +83,14 @@
                    (re-find #"[^\d]*")))
           pitches))
 
+(defn pclass-for-pmap
+  [pmap]
+  (->> pmap
+       :name
+       stringify-pitch
+       (re-find #"[^\d]*")
+       keyword))
+
 (defn pitch-map-for-pclass-and-octave
   [pclass octave]
   (or (first (filter #(= (stringify-pitch (:name %)) (stringify-pitch (str (name pclass) octave))) pitches))
@@ -119,7 +127,8 @@
   these arguments should contain `pitch-map` in their name.
 
   Forces the function to return a pitch of the same type as the first pitch-map arg. If note names are passed,
-  a note name will be returned.
+  a note name will be returned. If the fn returns a vector of pitch-maps instead of just one pitch-map, it
+  will convert each pitch-map to the type input to the fn.
 
   I don't know if this is the best approach, but it's better than manually making the maps everywhere "
   [fn-name args body]
@@ -133,20 +142,81 @@
                                               `(flesh-out-pitch ~arg)
                                               arg)])
                                      args)))
-       (get ~body return-type#))))
+       (def result# ~body)
+       (if (or (seq? result#) (vector? result#))
+         (mapv return-type# result#)
+         (get result# return-type#)))))
 
 ;;this could probably be more efficient
 ;;should also allow one to specify octaves
-(defpitchfn closest-pitch
-  [source-pitch-map target-pitch-class direction]
+;; (defpitchfn closest-pitch
+;;   [source-pitch-map target-pitch-class direction]
+;;   (first
+;;    (sort-by
+;;     #(Math/abs (- (:midi source-pitch-map) (:midi %)))
+;;     (filter #(case direction
+;;                :up   (< (:midi source-pitch-map) (:midi %))
+;;                :down (> (:midi source-pitch-map) (:midi %)))
+;;             (pitch-maps-for-pitch-class target-pitch-class)))))
+
+;; (defn pitches-between
+;;   [lower upper]
+;;   (filter #(< (:midi lower) (:midi %) (:midi upper)) pitches))
+
+;; (defpitchfn pitches-between
+;;   [pitch-map-limit1 pitch-map-limit2]
+;;   (let [[lower upper] (sort-by :midi [pitch-map-limit1 pitch-map-limit2])]
+;;     (filter #(< (:midi lower) (:midi %) (:midi upper)) pitches)))
+
+;; (defpitchfn plus
+;;   [pitch-map semitones]
+;;   (pitch-map-for-midi (+ (:midi pitch-map) semitones)))
+
+
+(defn closest-pitch
+  [source target-class direction]
   (first
    (sort-by
-    #(Math/abs (- (:midi source-pitch-map) (:midi %)))
+    #(Math/abs (- (:midi source) (:midi %)))
     (filter #(case direction
-               :up   (< (:midi source-pitch-map) (:midi %))
-               :down (> (:midi source-pitch-map) (:midi %)))
-            (pitch-maps-for-pitch-class target-pitch-class)))))
+               :up   (< (:midi source) (:midi %))
+               :down (> (:midi source) (:midi %)))
+            (pitch-maps-for-pitch-class target-class)))))
+
 
 (defn pitches-between
   [lower upper]
   (filter #(< (:midi lower) (:midi %) (:midi upper)) pitches))
+
+(defn pitches-between
+  [pitch-map-limit1 pitch-map-limit2]
+  (let [[lower upper] (sort-by :midi [pitch-map-limit1 pitch-map-limit2])]
+    (filter #(< (:midi lower) (:midi %) (:midi upper)) pitches)))
+
+(defn plus
+  [pitch-map semitones]
+  (pitch-map-for-midi (+ (:midi pitch-map) semitones)))
+
+(defn sort-pitches
+  [pitches]
+  (sort-by :midi pitches))
+
+;;this should be smarter once we get into modes
+(def keys-pitches
+  {[:c :major] #{:c :d :e :f :g :a :b}
+   [:c :minor] #{:c :d :d# :f :g :g# :a#}
+   }
+  )
+
+(defn in-key?
+  [key pitch]
+  (contains? (get keys-pitches key) (pclass-for-pmap pitch)))
+
+(defn below-pitch?
+  [pitch1 pitch2]
+  (> (:midi pitch1) (:midi pitch2))
+  )
+
+(defn above-pitch?
+  [pitch1 pitch2]
+  (< (:midi pitch1) (:midi pitch2)))

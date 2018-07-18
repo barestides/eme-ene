@@ -1,4 +1,5 @@
-(ns eme-ene.util.constants)
+(ns eme-ene.util.constants
+  (:require [faconne.core :as f]))
 
 (def modes->ints
   {:ionian     #{0 2 4 5 7 9 11}
@@ -19,6 +20,23 @@
    :et 0.04166
    :s 0.0625
    :ts 0.03125})
+
+(defn nice-names->note-fracs
+  [& [pulse]]
+  (let [absolute-vals {:w 1
+                       :h 1/2
+                       :dq 3/8
+                       :q 1/4
+                       :de 3/16
+                       :e 1/8
+                       :et 1/12
+                       :s 1/16
+                       :st 1/24}]
+    (if pulse
+      (f/transform absolute-vals
+                   {k v}
+                   {k (/ v (pulse absolute-vals))})
+      absolute-vals)))
 
 (def pitches
 [{:midi 127, :name :g9, :freq 12543.85}

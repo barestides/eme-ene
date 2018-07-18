@@ -11,11 +11,12 @@
             [eme-ene.sample.beats :as beats]
             [eme-ene.sample.melodies :as mels]
             [eme-ene.util.util :as util]
+            [eme-ene.util.pitch :as pu]
             [eme-ene.util.constants :refer :all]))
 
 (def config
   {:mode :locrian
-   :tonic 40
+   :tonic 60
    :mode-adherence 1.0
    ;;relative to the tonic, if tonic is c4 and floor is 6, no notes lower than f#3(?) will be played
    :floor 12
@@ -25,8 +26,27 @@
 
    :len-beats 4.0
    ;;The generator will only place notes as fine as the `beat-granularity` is specified.
-   :beat-granularity :s
+   :avail-durs [:s :e]
    :pulse :q})
+
+(def dest-config
+  ;;destinations might not be necessary, but it makes more sense for using this
+  {:first-pitch (pu/pitch-map-for-name :f#4)
+   :transition-configs  [{:saturation 1.0
+                          :direction :up
+                          :target :d#
+                          :inversions 0
+                          :pulse :q
+                          :possible-durs [:e :s]
+                          :len-beats 3.0}
+                         {:saturation 1.0
+                          :direction :down
+                          :inversions 1
+                          :pulse :q
+                          :possible-durs [:e :s]
+                          :target :c#
+                          :len-beats 2.0}]
+   :key [:c :minor]})
 
 (def controls {0 {:swing 0}
                1 {:swing 0}
@@ -58,8 +78,9 @@
 
 (defn try-mel
   []
-  (let [mel (mel-gen/mel-gen config)
+  (let [mel ;; (mel-gen/mel-gen config)
         ;; mel2 (mel-gen2 config2)
+        (mel-gen/destination-mel-gen dest-config)
         piano-track (track-gen/inst-track mel :zyn-piano)
         ;; bass-track (cmmge.midi/inst-track mel2 :bass)
         ]
