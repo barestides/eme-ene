@@ -31,22 +31,29 @@
 
 (def dest-config
   ;;destinations might not be necessary, but it makes more sense for using this
-  {:first-pitch (pu/pitch-map-for-name :f#4)
+  {:first-pitch (pu/pitch-map-for-name :c3)
    :transition-configs  [{:saturation 1.0
                           :direction :up
-                          :target :d#
-                          :inversions 0
-                          :pulse :q
-                          :possible-durs [:e :s]
-                          :len-beats 3.0}
+                          :target :d
+                          :inversions 1
+                          :possible-durs [:e :q]
+                          :len-beats 1.5}
                          {:saturation 1.0
                           :direction :down
                           :inversions 1
-                          :pulse :q
                           :possible-durs [:e :s]
-                          :target :c#
-                          :len-beats 2.0}]
-   :key [:c :minor]})
+                          :target :a
+                          :len-beats 1.5}
+                         {:saturation 1.0
+                          :direction :down
+                          :inversions 0
+                          :possible-durs [:e :q]
+                          :target :g
+                          :len-beats 1.0}]
+   ;;we could split this int a "global config", that gets merged into the transition configs
+   :global
+   {:key [:c :major]
+    :pulse :q}})
 
 (def controls {0 {:swing 0}
                1 {:swing 0}

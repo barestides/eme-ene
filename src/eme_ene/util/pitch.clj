@@ -205,7 +205,7 @@
 (def keys-pitches
   {[:c :major] #{:c :d :e :f :g :a :b}
    [:c :minor] #{:c :d :d# :f :g :g# :a#}
-   }
+   [:f# :minor] #{:f# :g# :a :b :c# :d :e}}
   )
 
 (defn in-key?
