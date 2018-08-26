@@ -164,13 +164,13 @@
                           :target :d
                           :inversions 0
                           :pulse :q
-                          :possible-durs [:e :et]
+                          :possible-durs [:s :et :e]
                           :len-beats 3.0}
                          {:saturation 1.0
                           :direction :down
                           :inversions 1
                           :pulse :q
-                          :possible-durs [:e :s]
+                          :possible-durs [:e :s :et]
                           :target :c#
                           :len-beats 2.0}]
    ;;we could split this int a "global config", that gets merged into the transition configs
@@ -188,7 +188,10 @@
         ;;At least 2 slots are needed for every inversion
         allowable-combos (filter #(> (apply + %) (* inversions 2))
                                  (ru/allowable-dur-counts possible-durs len-beats pulse))]
-    (shuffle (flatten (map (fn [note number] (repeat number note)) possible-durs (rand-nth allowable-combos))))))
+    (if (empty? allowable-combos)
+      (throw (Exception. (str "No allowable combos for possible-durs: " possible-durs " , len-beats: " len-beats
+                              ", inversions: " inversions)))
+      (shuffle (flatten (map (fn [note number] (repeat number note)) possible-durs (rand-nth allowable-combos)))))))
 
 ;;if we are going from pitch to pitch, and have 0 inversions, we always move in the same direction, or don't move at
 ;;all. Note that this has no concept of up/down. 1 does not mean up, -1 does not mean down. 1 just means the same

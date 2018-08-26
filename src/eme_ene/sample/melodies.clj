@@ -8,6 +8,16 @@
                     {:pitch {:midi 65, :name :f3, :freq 174.61}, :dur :q}
                     {:pitch {:midi 69, :name :g3, :freq 196.0}, :dur :q}]])
 
+(def a1
+  [{:pitch :c1 :dur :dq}
+   {:pitch :d#1 :dur :e}
+   {:pitch :c#1 :dur :dq}
+   {:rest? true :dur :e}
+   {:pitch :c1 :dur :dq}
+   {:pitch :d#1 :dur :e}
+   {:pitch :c#1 :dur :q}
+   {:pitch :f1 :dur :q}])
+
 ;; https://drive.google.com/file/d/1bXX-mboJmjg3wxByd-OSL83BZAXZHF7i/view
 (def black-milk-bassline
   [{:pitch :f# :dur :q}

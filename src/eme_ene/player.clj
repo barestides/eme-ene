@@ -143,25 +143,26 @@
 (defn play-pattern2
   [state pattern inst cur-beat track-id]
   (let [{:keys [nome pulse playing?]} state
+        {:keys [dur rest? vel] :as note} (first pattern)
         inst-fn (midi/get-inst-fn inst)
-        {:keys [dur rest? vel]} (first pattern)
         real-dur (float (/ (dur nice-names->note-values)
                            (pulse nice-names->note-values)))
         swing (get-in @(:controls state) [track-id :swing])
-        next-beat (+ cur-beat real-dur swing)]
+        next-beat (+ cur-beat real-dur)]
     (if (not vel)
       (prn "hey there's no velocity on the note. For whatever reason I can't throw an exception here")
       (do (when (and @playing? (not rest?))
-            (at-at/at (nome cur-beat) #(inst-fn vel) pool))
+            (at-at/at (nome (+ cur-beat swing)) #(inst-fn (assoc note :dur real-dur)) pool))
           (when (and @playing? (not-empty (rest pattern)))
             (t/apply-by (nome next-beat) #'play-pattern2 [state (rest pattern) inst next-beat track-id]))))))
 
 (defn play-track2
   [state track-id beat]
   (let [track (get @(:tracks state) track-id)
-        nome (:nome state)
+        {:keys [nome pulse]} state
         {:keys [pattern inst]} track
-        pattern-length (a/melody-length (:pattern track) (:pulse state))
+        pattern-length (a/melody-length (:pattern track) pulse)
+        swing (get-in @(:controls state) [track-id :swing])
         next-beat (+ pattern-length beat)]
     (at-at/at (nome beat) #(play-pattern2 state pattern inst beat track-id) pool)
     (when @(:playing? state)

@@ -19,7 +19,7 @@
    :e 0.125
    :et 0.04166
    :s 0.0625
-   :ts 0.03125})
+   :st 0.03125})
 
 (defn nice-names->note-fracs
   [& [pulse]]

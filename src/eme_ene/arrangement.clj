@@ -14,10 +14,11 @@
              :beat-granularity :s
              :pulse :q})
 
-     ;;changes:
-     ;; same rhythmic pattern, different pitches entirely
-     ;; syncopate
-     ;; use directions of pitch movement, but different intervals
+;;changes:
+;; same rhythmic pattern, different pitches entirely
+;; syncopate
+;; use directions of pitch movement, but different intervals
+
 
 (defn elaborate-beat
   [drum-map pulse]
@@ -28,12 +29,11 @@
                                ;;based on the strength of the beat, play the note or do a rest
                                ;;We could use this for generation, we're just iterating through every possible place
                                ;;a note could be given granularity
-                               rest? (chance/weighted-coin (case (spy (mod beat 1))
-                                                             0.0 0.2
-                                                             0.25 0.2
-                                                             0.5 0.2
-                                                             0.75 0.2))]
-                           (spy beat)
+                               rest? (chance/weighted-coin (case (mod beat 1)
+                                                             0.0 1.0
+                                                             0.25 0.0
+                                                             0.5 1.0
+                                                             0.75 0.5))]
                            (conj pattern (if rest? {:dur (:dur note) :rest? true} note))))
                        []
                        hi-hat)]

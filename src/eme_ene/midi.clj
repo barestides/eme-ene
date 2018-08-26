@@ -18,7 +18,7 @@
 (def apps
   {:drumkv1 drumkv1
    :qsynth qsynth
-   :zynaddsubx zynaddsubfx})
+   :zynaddsubfx zynaddsubfx})
 
 ;;we should definitely track these in state and allow them to be changeable
 ;; https://github.com/barestides/eme-ene/issues/10
@@ -33,6 +33,12 @@
 (def inst->zyn-channel
   {:bass 0
    :piano 1})
+
+(def program-channels->insts
+  {:zynaddsubfx {:bass 0
+                 :piano 1}
+   :qsynth {:bass 2
+            :piano 0}})
 
 ;;these should be more generic, we really have just melodic and percussive, but we could have different receivers
 ;;remove these eventually
@@ -53,14 +59,18 @@
 (defmethod get-inst-fn :percussive
   [inst]
   (let [{:keys [app drum]} inst]
-    (fn [vel]
+    (fn [{:keys [vel]}]
       (omidi/midi-note (app apps) (drum midi->drum) vel 10))))
 
+;;need a better name than inst
 (defmethod get-inst-fn :melodic
   [inst]
-  (let [{:keys [app channel]} inst]
-    (fn [dur midi vel]
-      (omidi/midi-note (app apps) midi vel dur channel))))
+  (let [{:keys [app real-inst]} inst]
+    (fn [note]
+      (let [{:keys [pitch dur vel]} note
+            {:keys [midi]} pitch]
+        (omidi/midi-note (app apps) midi vel (* dur 900)
+                         (get-in program-channels->insts [app real-inst]))))))
 
 ;; (defn get-inst-fn
 ;;   [app channel]

@@ -1,5 +1,6 @@
 (ns eme-ene.generation.track
   (:require [faconne.core :as f]
+            [eme-ene.util.pitch :as pu]
             [eme-ene.midi :as midi]
             [eme-ene.util.constants :refer :all]))
 
@@ -68,7 +69,12 @@
   [mel inst]
   {:inst-type :melodic
    :inst-fn (inst inst-fns)
-   :pattern mel})
+   :pattern (if (keyword? (:pitch (first mel)))
+              (f/transform mel
+                           [{:pitch pitch :dur dur}]
+                           [{:pitch (pu/pitch-map-for-name pitch)
+                              :dur dur}])
+              mel)})
 
 (defn rest-bars
   [num-bars]
@@ -102,6 +108,18 @@
            {:dur :s, :rest? true}
            {:dur :s :vel 30}
            {:dur :s, :rest? true}]})
+
+(defn add-vels
+  [mel]
+  (mapv (fn [note] (if-let [vel (:vel note)]
+                     note
+                     (assoc note :vel 100)))
+        mel))
+
+(defn inst-track2
+  [mel inst]
+  {:inst (assoc inst :type :melodic)
+   :pattern (add-vels mel)})
 
 (defn drum-tracklist2
   [drum->pattern]
